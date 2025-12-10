@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impresor PDF</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .upload-section {
+            display: none;
+        }
+        .upload-section.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            color: #555;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        input[type="file"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input[type="file"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading-section {
+            display: none;
+        }
+        .loading-section.active {
+            display: block;
+        }
+        .job-id {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            word-break: break-all;
+            font-size: 12px;
+            color: #666;
+        }
+        .job-id label {
+            margin-bottom: 5px;
+        }
+        .progress-container {
+            margin-bottom: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            margin-top: 10px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .status.printing {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.completed {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .download-btn {
+            width: 100%;
+            padding: 12px;
+            background: #388e3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: none;
+        }
+        .download-btn.active {
+            display: block;
+        }
+        .download-btn:hover {
+            background: #2e7d32;
+        }
+        .back-btn {
+            width: 100%;
+            padding: 12px;
+            background: #757575;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .back-btn:hover {
+            background: #616161;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Impresor PDF</h1>
+        
+        <!-- Sección de Carga -->
+        <div class="upload-section active">
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="fileInput">Seleccionar PDF:</label>
+                    <input type="file" id="fileInput" name="file" accept=".pdf" required>
+                </div>
+                <div class="form-group">
+                    <label for="priorityInput">Prioridad:</label>
+                    <input type="number" id="priorityInput" name="priority" value="0" min="0" max="10">
+                </div>
+                <button type="submit" id="submitBtn">Enviar</button>
+            </form>
+        </div>
+        
+        <!-- Sección de Carga en Progreso -->
+        <div class="loading-section">
+            <div class="spinner"></div>
+            <div class="status printing">
+                Imprimiendo...
+            </div>
+            <div class="job-id">
+                <label>ID de Trabajo:</label>
+                <div id="jobId"></div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressText">0%</span>
+                </div>
+            </div>
+            <button class="download-btn" id="downloadBtn">Descargar PDF</button>
+            <button class="back-btn" id="backBtn">Volver a Subir</button>
+        </div>
+    </div>
+
+    <script>
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadSection = document.querySelector('.upload-section');
+        const loadingSection = document.querySelector('.loading-section');
+        const jobIdDisplay = document.getElementById('jobId');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const backBtn = document.getElementById('backBtn');
+        const statusDiv = document.querySelector('.status');
+
+        let currentJobId = null;
+        let ws = null;
+
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const priorityInput = document.getElementById('priorityInput');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('priority', priorityInput.value);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentJobId = data.job_id;
+                    jobIdDisplay.textContent = currentJobId;
+                    
+                    // Cambiar a la sección de carga
+                    uploadSection.classList.remove('active');
+                    loadingSection.classList.add('active');
+                    
+                    // Conectar WebSocket
+                    connectWebSocket(currentJobId);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error al subir el archivo: ' + error);
+            }
+        });
+
+        function connectWebSocket(jobId) {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/${jobId}`);
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'progress') {
+                        const percentage = (data.pages_printed / data.total_pages) * 100;
+                        progressFill.style.width = percentage + '%';
+                        progressText.textContent = `${Math.round(percentage)}% (${data.pages_printed}/${data.total_pages})`;
+                    } else if (data.type === 'printer' && data.status === 'idle') {
+                        // Impresión completada
+                        progressFill.style.width = '100%';
+                        progressText.textContent = '100%';
+                        statusDiv.textContent = '¡Impresión completada!';
+                        statusDiv.classList.remove('printing');
+                        statusDiv.classList.add('completed');
+                        downloadBtn.classList.add('active');
+                    }
+                } catch (error) {
+                    console.error('Error procesando mensaje:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('Error WebSocket:', error);
+                statusDiv.textContent = 'Error en la conexión';
+                statusDiv.classList.remove('printing');
+                statusDiv.classList.add('error');
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket cerrado');
+            };
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            if (currentJobId) {
+                window.location.href = `/download/${currentJobId}`;
+            }
+        });
+
+        backBtn.addEventListener('click', () => {
+            // Cerrar WebSocket
+            if (ws) {
+                ws.close();
+            }
+            
+            // Resetear formulario
+            uploadForm.reset();
+            progressFill.style.width = '0%';
+            progressText.textContent = '0%';
+            statusDiv.textContent = 'Imprimiendo...';
+            statusDiv.classList.remove('completed', 'error');
+            statusDiv.classList.add('printing');
+            downloadBtn.classList.remove('active');
+            
+            // Volver a la sección de carga
+            uploadSection.classList.add('active');
+            loadingSection.classList.remove('active');
+            
+            currentJobId = null;
+        });
+    </script>
+</body>
+</html>
