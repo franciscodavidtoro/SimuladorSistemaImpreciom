@@ -182,3 +182,16 @@ cython_debug/
 
 uploads/*
 !uploads/.placeholder
+
+# Base de datos de registro de trabajos
+job_registry.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos temporales de editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

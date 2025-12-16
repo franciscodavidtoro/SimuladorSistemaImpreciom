@@ -9,6 +9,7 @@ from models import PrintJob
 from printer_process import printer_process
 from websocket_manager import job_subscribers, subscribers_lock, broadcast
 from queue_manager import put_job, get_job, peek_queue
+from job_registry import get_job_registry
 
 # Variables globales para colas y estado compartido
 job_queue = None
@@ -114,6 +115,11 @@ async def monitor(request: Request):
 async def batch_upload(request: Request):
     return templates.TemplateResponse("batch_upload.html",{"request":request})
 
+@app.get("/registry", response_class=HTMLResponse)
+async def registry(request: Request):
+    """Página para consultar el registro de trabajos"""
+    return templates.TemplateResponse("registry.html",{"request":request})
+
 @app.get("/download/{job_id}")
 async def download_file(job_id: str):
     path = os.path.join(UPLOAD_DIR, f"{job_id}.pdf")
@@ -141,6 +147,58 @@ async def set_queue_type(queue_type: str = Query("fifo")):
 async def get_queue_type():
     """Obtener el tipo de cola actual"""
     return {"queue_type": system_config["queue_type"]}
+
+# ========== ENDPOINTS DE REGISTRO DE TRABAJOS ==========
+
+@app.get("/registry/jobs")
+async def get_all_jobs(limit: int = Query(50), offset: int = Query(0)):
+    """Obtiene todos los trabajos registrados con paginación"""
+    registry = get_job_registry()
+    jobs = registry.get_all_jobs(limit=limit, offset=offset)
+    return {"jobs": jobs, "limit": limit, "offset": offset}
+
+@app.get("/registry/job/{job_id}")
+async def get_job_details(job_id: str):
+    """Obtiene los detalles de un trabajo específico"""
+    registry = get_job_registry()
+    job = registry.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    return job
+
+@app.get("/registry/printer/{printer_id}")
+async def get_printer_jobs(printer_id: str):
+    """Obtiene todos los trabajos procesados por una impresora específica"""
+    registry = get_job_registry()
+    jobs = registry.get_jobs_by_printer(printer_id)
+    return {"printer_id": printer_id, "jobs": jobs}
+
+@app.get("/registry/statistics")
+async def get_registry_statistics():
+    """Obtiene estadísticas del registro de trabajos"""
+    registry = get_job_registry()
+    stats = registry.get_statistics()
+    return stats
+
+@app.delete("/registry/job/{job_id}")
+async def delete_job_record(job_id: str):
+    """Elimina un trabajo del registro"""
+    registry = get_job_registry()
+    success = registry.delete_job(job_id)
+    if not success:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    return {"message": f"Job {job_id} deleted successfully"}
+
+@app.post("/registry/clear")
+async def clear_registry():
+    """Limpia todo el registro (uso con cuidado)"""
+    registry = get_job_registry()
+    success = registry.clear_all()
+    if success:
+        return {"message": "Registry cleared successfully"}
+    return JSONResponse({"error": "Failed to clear registry"}, status_code=500)
+
+# ========== FIN ENDPOINTS DE REGISTRO ==========
 
 @app.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
